@@ -14,21 +14,25 @@ def read_log(log_file):
     gt_points = []
     with open(log_file, 'r') as f:
         for i, line in enumerate(f.readlines()):
-            tmp_data = line.split()
+            try:
+                tmp_data = line.split()
 
-            img_ids.append(int(tmp_data[0]))
-            sp_features.append(int(tmp_data[1]))
-            norm_features.append(int(tmp_data[2]))
-            sp_points.append([float(x) for x in tmp_data[3:6]])
-            norm_points.append([float(x) for x in tmp_data[6:9]])
-            gt_points.append([float(x) for x in tmp_data[9:12]])
+                img_ids.append(int(tmp_data[0]))
+                sp_features.append(int(tmp_data[1]))
+                norm_features.append(int(tmp_data[2]))
+                sp_points.append([float(x) for x in tmp_data[3:6]])
+                norm_points.append([float(x) for x in tmp_data[6:9]])
+                gt_points.append([float(x) for x in tmp_data[9:12]])
+            except ValueError:
+                print(tmp_data)
+                print("\nfailed")
     return np.array(img_ids), np.array(sp_features), np.array(norm_features), np.array(sp_points), np.array(norm_points), np.array(gt_points)
 
 
 def main():
     # dataloader
     img_ids, sp_features, norm_features, sp_points, norm_points, gt_points = read_log(
-        "results/kitti_10.txt")
+        "results/kitti_00.txt")
     # error
     sp_error = np.linalg.norm((sp_points - gt_points)[:, [0, 2]], axis=1)
     norm_error = np.linalg.norm((norm_points - gt_points)[:, [0, 2]], axis=1)

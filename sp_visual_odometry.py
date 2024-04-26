@@ -35,7 +35,7 @@ class VisualOdometry:
         self.focal = cam.fx
         self.pp = (cam.cx, cam.cy)
         self.trueX, self.trueY, self.trueZ = 0, 0, 0
-        self.detector = SuperPointFrontend(weights_path="superpoint_v1.pth",
+        self.detector = SuperPointFrontend(weights_path="weights/superpoint_v1.pth",
                                            nms_dist=4,
                                            conf_thresh=0.015,
                                            nn_thresh=0.7,

@@ -19,14 +19,14 @@ else:
     exit()
 
 # pose_path
-pose_path = '/home/user/Desktop/dataset/poses/' + Num + '.txt'
-vo = VisualOdometry(cam4, pose_path)
-sp_vo = sp_VisualOdometry(cam4, pose_path)
+pose_path = '/home/cjk2002/datasets/KITTI/poses/' + Num + '.txt'
+vo = VisualOdometry(cam0_2, pose_path)
+sp_vo = sp_VisualOdometry(cam0_2, pose_path)
 
 traj = np.zeros((600, 600, 3), dtype=np.uint8)
 
 # log
-log_fopen = open("results/kitti_" + Num + ".txt", mode='a')
+log_fopen = open("results/kitti_" + Num + ".txt", mode='w+')
 
 # list
 sp_errors = []
@@ -35,7 +35,7 @@ sp_feature_nums = []
 norm_feature_nums = []
 
 for img_id in range(4541):
-    img = cv2.imread('/home/user/Desktop/dataset/sequences/' +
+    img = cv2.imread('/home/cjk2002/datasets/KITTI/sequences/' +
                      Num + '/image_0/' + str(img_id).zfill(6) + '.png', 0)
 
     # === superpoint ==============================
@@ -62,7 +62,7 @@ for img_id in range(4541):
 
     img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
     for (u, v) in vo.px_ref:
-        cv2.circle(img, (u, v), 3, (0, 255, 0))
+        cv2.circle(img, (int(u), int(v)), 3, (0, 255, 0))
 
     # === calculation =============================
     # calculate error
