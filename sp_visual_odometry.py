@@ -1,7 +1,7 @@
 import numpy as np
 import cv2
 
-from sp_extractor import SuperPointFrontend, PointTracker
+from sp_extractor import SuperPointFrontend, PointTracker, EventPointFrontend
 
 
 STAGE_FIRST_FRAME = 0
@@ -107,4 +107,30 @@ class VisualOdometry:
             self.processSecondFrame()
         elif(self.frame_stage == STAGE_FIRST_FRAME):
             self.processFirstFrame()
+        # self.processFrame(frame_id) # 新增测试
         self.last_frame = self.new_frame
+
+
+class EventVisualOdometry(VisualOdometry):
+    def __init__(self, cam, annotations):
+        super(EventVisualOdometry,self).__init__(cam, annotations)
+
+        self.detector = EventPointFrontend(weights_path="weights/superpoint_04231822_best.pth",
+                                    nms_dist=4,
+                                    conf_thresh=0.015,
+                                    nn_thresh=0.7,
+                                    cuda=True)
+        self.annotations = self.annotations[1:]
+    
+
+    def getAbsoluteScale(self, frame_id):  # specialized for VECtor odometry dataset
+        ss = self.annotations[frame_id - 1].strip().split()
+        x_prev = float(ss[1])
+        y_prev = float(ss[2])
+        z_prev = float(ss[3])
+        ss = self.annotations[frame_id].strip().split()
+        x = float(ss[1])
+        y = float(ss[2])
+        z = float(ss[3])
+        self.trueX, self.trueY, self.trueZ = x, y, z
+        return np.sqrt((x - x_prev) * (x - x_prev) + (y - y_prev) * (y - y_prev) + (z - z_prev) * (z - z_prev))
