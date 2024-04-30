@@ -139,9 +139,11 @@ if __name__ == '__main__':
 
         # === drawer ==================================
         # each point
-        sp_draw_x, sp_draw_y = int(sp_x) + 290, int(sp_z) + 90
+        sp_draw_x, sp_draw_y = int(sp_x*10) + 290, int(sp_y*10) + 290
         # norm_draw_x, norm_draw_y = int(x) + 290, int(z) + 90
-        true_x, true_y = int(sp_vo.trueX) + 290, int(sp_vo.trueZ) + 90
+        true_x, true_y = int(sp_vo.trueX*10) + 290, int(sp_vo.trueY*10) + 290
+        tqdm.write('\rx = {} y = {} true_x = {} true_y = {} stage = {} absolute_scale = {}'\
+                   .format(sp_x,sp_y,sp_vo.trueX,sp_vo.trueY,sp_vo.frame_stage,sp_vo.absolute_scale))
 
         # draw trajectory
         cv2.circle(traj, (sp_draw_x, sp_draw_y), 1, (255, 0, 0), 1)

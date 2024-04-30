@@ -555,8 +555,9 @@ class EventPointFrontend(object):
         self.conf_thresh = conf_thresh
         self.nn_thresh = nn_thresh  # L2 descriptor distance for good match.
         self.cell = 8  # Size of each output cell. Keep this fixed.
-        self.border_remove = 4  # Remove points this close to the border.
-
+        self.border_remove = 40  # Remove points this close to the border.
+        self.mask_radius = 200  # Remove points this close to the border.
+        # self.mask = self.create_circle_mask() #创建圆形掩膜
         # Load the network in inference mode.
         self.net = EventPointNet()
         if cuda:
@@ -641,6 +642,30 @@ class EventPointFrontend(object):
         out = out[:, inds2]
         out_inds = inds1[inds_keep[inds2]]
         return out, out_inds
+
+    def create_circle_mask(self, shape, center, radius):
+        """
+        创建一个圆形掩膜。
+        
+        参数：
+        shape: 二维数组的形状，(rows, cols)
+        center: 圆心坐标，(row, col)
+        radius: 圆的半径
+        """
+        rows, cols = shape
+        row_center, col_center = center
+        
+        # 创建一个空的二维数组，初始值为 False
+        mask = np.zeros((rows, cols), dtype=bool)
+        
+        # 计算每个点到圆心的距离，若小于半径，则设置为 True
+        for i in range(rows):
+            for j in range(cols):
+                if (i - row_center)**2 + (j - col_center)**2 <= radius**2:
+                    mask[i, j] = True
+                    
+        return mask
+
 
     def run(self, img):
         """ Process a numpy image to extract points and descriptors.

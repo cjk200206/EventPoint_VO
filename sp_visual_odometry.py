@@ -92,6 +92,7 @@ class VisualOdometry:
         _, R, t, mask = cv2.recoverPose(E, self.px_cur, self.px_ref,
                                         focal=self.focal, pp=self.pp)
         absolute_scale = self.getAbsoluteScale(frame_id)
+            
         if(absolute_scale > 0.1):
             self.cur_t = self.cur_t + absolute_scale * self.cur_R.dot(t)
             self.cur_R = R.dot(self.cur_R)
@@ -115,12 +116,14 @@ class EventVisualOdometry(VisualOdometry):
     def __init__(self, cam, annotations):
         super(EventVisualOdometry,self).__init__(cam, annotations)
 
-        self.detector = EventPointFrontend(weights_path="weights/superpoint_04231822_best.pth",
+        self.detector = EventPointFrontend(weights_path= "weights/superpoint_04231822_best.pth",
                                     nms_dist=4,
                                     conf_thresh=0.015,
                                     nn_thresh=0.7,
                                     cuda=True)
         self.annotations = self.annotations[1:]
+        # 用作测试
+        self.absolute_scale = None
     
 
     def getAbsoluteScale(self, frame_id):  # specialized for VECtor odometry dataset
@@ -134,3 +137,27 @@ class EventVisualOdometry(VisualOdometry):
         z = float(ss[3])
         self.trueX, self.trueY, self.trueZ = x, y, z
         return np.sqrt((x - x_prev) * (x - x_prev) + (y - y_prev) * (y - y_prev) + (z - z_prev) * (z - z_prev))
+    
+
+
+    def processFrame(self, frame_id):
+        self.px_ref, self.px_cur = self.featureTracking()
+
+        E, mask = cv2.findEssentialMat(self.px_cur, self.px_ref,
+                                       focal=self.focal, pp=self.pp,
+                                       method=cv2.RANSAC, prob=0.999, threshold=1.0)
+        try :
+            _, R, t, mask = cv2.recoverPose(E, self.px_cur, self.px_ref,
+                                            focal=self.focal, pp=self.pp)
+            self.absolute_scale = self.getAbsoluteScale(frame_id)
+            
+            if(self.absolute_scale > 0.01):
+                # self.cur_t = self.cur_t + self.absolute_scale * self.cur_R.dot(t)
+                self.cur_t = self.cur_t + self.cur_R.dot(t)
+                self.cur_R = R.dot(self.cur_R)
+            self.px_ref = self.px_cur
+        except:
+            self.frame_stage == STAGE_FIRST_FRAME
+        
+
+    
