@@ -37,11 +37,11 @@ class VisualOdometry:
         self.trueX, self.trueY, self.trueZ = 0, 0, 0
         self.detector = SuperPointFrontend(weights_path="weights/superpoint_v1.pth",
                                            nms_dist=4,
-                                           conf_thresh=0.015,
+                                           conf_thresh=0.025,
                                            nn_thresh=0.7,
                                            cuda=True)
         self.tracker = PointTracker(
-            max_length=2, nn_thresh=self.detector.nn_thresh)
+            max_length=10, nn_thresh=self.detector.nn_thresh)
         with open(annotations) as f:
             self.annotations = f.readlines()
 
@@ -50,7 +50,7 @@ class VisualOdometry:
         # Add points and descriptors to the tracker.
         self.tracker.update(pts, desc)
         # Get tracks for points which were match successfully across all frames.
-        tracks = self.tracker.get_tracks(min_length=1)
+        tracks = self.tracker.get_tracks(min_length=2)
         # Normalize track scores to [0,1].
         tracks[:, 1] /= float(self.detector.nn_thresh)
         kp1, kp2 = self.tracker.draw_tracks(tracks)
@@ -116,7 +116,7 @@ class EventVisualOdometry(VisualOdometry):
     def __init__(self, cam, annotations):
         super(EventVisualOdometry,self).__init__(cam, annotations)
 
-        self.detector = EventPointFrontend(weights_path= "weights/superpoint_04231822_best.pth",
+        self.detector = EventPointFrontend(weights_path= "weights/superpoint_05022138_best.pth",
                                     nms_dist=4,
                                     conf_thresh=0.015,
                                     nn_thresh=0.7,

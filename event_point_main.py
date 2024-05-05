@@ -60,7 +60,7 @@ if __name__ == '__main__':
     # vo = VisualOdometry(cam0_2, pose_path)
     sp_vo = event_VisualOdometry(cam_vector, pose_path)
 
-    traj = np.zeros((600, 600, 3), dtype=np.uint8)
+    traj = np.zeros((1000, 1000, 3), dtype=np.uint8)
 
     # log
     log_fopen = open("results/VECtor_"+"corridors_dolly1"+".txt", mode='w+')
@@ -139,9 +139,9 @@ if __name__ == '__main__':
 
         # === drawer ==================================
         # each point
-        sp_draw_x, sp_draw_y = int(sp_x*10) + 290, int(sp_y*10) + 290
+        sp_draw_x, sp_draw_y = int(sp_x*5) + 500, int(sp_y*5) + 500
         # norm_draw_x, norm_draw_y = int(x) + 290, int(z) + 90
-        true_x, true_y = int(sp_vo.trueX*10) + 290, int(sp_vo.trueY*10) + 290
+        true_x, true_y = int(sp_vo.trueX*5) + 500, int(sp_vo.trueY*5) + 500
         tqdm.write('\rx = {} y = {} true_x = {} true_y = {} stage = {} absolute_scale = {}'\
                    .format(sp_x,sp_y,sp_vo.trueX,sp_vo.trueY,sp_vo.frame_stage,sp_vo.absolute_scale))
 
