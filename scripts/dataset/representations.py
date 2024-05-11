@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 
 
 class EventRepresentation:
@@ -54,3 +55,31 @@ class VoxelGrid(EventRepresentation):
                         voxel_grid[mask] = voxel_grid[mask] - mean
 
         return voxel_grid
+
+
+#SAE图
+def get_timesurface(x:np.ndarray,y:np.ndarray,ts:np.ndarray,p:np.ndarray,img_size = (260,346)):
+    
+    x = x.tolist()
+    y = y.tolist()
+    ts = (ts*10e-6).tolist()
+    p = p.tolist()
+    
+    img_size = img_size
+
+    # parameters for Time Surface
+    t_ref = ts[-1]      # 'current' time
+    tau = 50e-3         # 50ms
+
+    sae = np.zeros(img_size, np.float32)
+    # calculate timesurface using expotential decay
+    for i in range(len(ts)):
+        if (p[i] > 0):
+            sae[y[i], x[i]] = np.exp(-(t_ref-ts[i]) / tau)
+        else:
+            sae[y[i], x[i]] = -np.exp(-(t_ref-ts[i]) / tau)
+        
+        ## none-polarity Timesurface
+        # sae[y[i], x[i]] = np.exp(-(t_ref-ts[i]) / tau)
+
+    return sae

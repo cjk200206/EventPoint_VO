@@ -41,7 +41,7 @@ class VisualOdometry:
                                            nn_thresh=0.7,
                                            cuda=True)
         self.tracker = PointTracker(
-            max_length=10, nn_thresh=self.detector.nn_thresh)
+            max_length=2, nn_thresh=self.detector.nn_thresh)
         with open(annotations) as f:
             self.annotations = f.readlines()
 
@@ -116,8 +116,13 @@ class EventVisualOdometry(VisualOdometry):
     def __init__(self, cam, annotations):
         super(EventVisualOdometry,self).__init__(cam, annotations)
 
-        self.detector = EventPointFrontend(weights_path= "weights/superpoint_05022138_best.pth",
-                                    nms_dist=4,
+        # self.detector = EventPointFrontend(weights_path= "weights/superpoint_05091956_sae_best.pth",
+        #                             nms_dist=8,
+        #                             conf_thresh=0.025,
+        #                             nn_thresh=0.3,
+        #                             cuda=True)
+        self.detector = SuperPointFrontend(weights_path= "weights/superpoint_v1.pth",
+                                    nms_dist=8,
                                     conf_thresh=0.015,
                                     nn_thresh=0.7,
                                     cuda=True)
@@ -139,14 +144,27 @@ class EventVisualOdometry(VisualOdometry):
         return np.sqrt((x - x_prev) * (x - x_prev) + (y - y_prev) * (y - y_prev) + (z - z_prev) * (z - z_prev))
     
 
+    def processSecondFrame(self):
+        self.px_ref, self.px_cur = self.featureTracking()
+        try :
+            E, mask = cv2.findEssentialMat(self.px_cur, self.px_ref,
+                                        focal=self.focal, pp=self.pp,
+                                        method=cv2.RANSAC, prob=0.999, threshold=1.0)
+            _, self.cur_R, self.cur_t, mask = cv2.recoverPose(E, self.px_cur, self.px_ref,
+                                                            focal=self.focal, pp=self.pp)
+            self.frame_stage = STAGE_DEFAULT_FRAME
+            self.px_ref = self.px_cur
+        except:
+            self.frame_stage == STAGE_FIRST_FRAME
+
 
     def processFrame(self, frame_id):
         self.px_ref, self.px_cur = self.featureTracking()
-
-        E, mask = cv2.findEssentialMat(self.px_cur, self.px_ref,
-                                       focal=self.focal, pp=self.pp,
-                                       method=cv2.RANSAC, prob=0.999, threshold=1.0)
         try :
+            E, mask = cv2.findEssentialMat(self.px_cur, self.px_ref,
+                                        focal=self.focal, pp=self.pp,
+                                        method=cv2.RANSAC, prob=0.999, threshold=1.0)
+
             _, R, t, mask = cv2.recoverPose(E, self.px_cur, self.px_ref,
                                             focal=self.focal, pp=self.pp)
             self.absolute_scale = self.getAbsoluteScale(frame_id)
@@ -155,6 +173,83 @@ class EventVisualOdometry(VisualOdometry):
                 # self.cur_t = self.cur_t + self.absolute_scale * self.cur_R.dot(t)
                 self.cur_t = self.cur_t + self.cur_R.dot(t)
                 self.cur_R = R.dot(self.cur_R)
+            self.px_ref = self.px_cur
+        except:
+            self.frame_stage == STAGE_FIRST_FRAME
+
+class EventVisualOdometry_without_gt(VisualOdometry):
+    def __init__(self, cam):
+        self.frame_stage = 0
+        self.cam = cam
+        self.new_frame = None
+        self.last_frame = None
+        self.cur_R = None
+        self.cur_t = None
+        self.px_ref = None
+        self.px_cur = None
+        self.focal = cam.fx
+        self.pp = (cam.cx, cam.cy)
+        self.trueX, self.trueY, self.trueZ = 0, 0, 0
+        # self.detector = SuperPointFrontend(weights_path="weights/superpoint_v1.pth",
+        #                                    nms_dist=4,
+        #                                    conf_thresh=0.025,
+        #                                    nn_thresh=0.7,
+        #                                    cuda=True)
+        self.detector = EventPointFrontend(weights_path= "weights/superpoint_05091956_sae_best.pth",
+                                    nms_dist=8,
+                                    conf_thresh=0.025,
+                                    nn_thresh=0.3,
+                                    cuda=True)
+
+        self.tracker = PointTracker(
+            max_length=2, nn_thresh=self.detector.nn_thresh)
+
+
+        # 用作测试
+        self.absolute_scale = None
+    
+
+    def getAbsoluteScale(self, frame_id):  # specialized for VECtor odometry dataset
+        ss = self.annotations[frame_id - 1].strip().split()
+        x_prev = float(ss[1])
+        y_prev = float(ss[2])
+        z_prev = float(ss[3])
+        ss = self.annotations[frame_id].strip().split()
+        x = float(ss[1])
+        y = float(ss[2])
+        z = float(ss[3])
+        self.trueX, self.trueY, self.trueZ = x, y, z
+        return np.sqrt((x - x_prev) * (x - x_prev) + (y - y_prev) * (y - y_prev) + (z - z_prev) * (z - z_prev))
+    
+
+    def processSecondFrame(self):
+        self.px_ref, self.px_cur = self.featureTracking()
+        try :
+            E, mask = cv2.findEssentialMat(self.px_cur, self.px_ref,
+                                        focal=self.focal, pp=self.pp,
+                                        method=cv2.RANSAC, prob=0.999, threshold=1.0)
+            _, self.cur_R, self.cur_t, mask = cv2.recoverPose(E, self.px_cur, self.px_ref,
+                                                            focal=self.focal, pp=self.pp)
+            self.frame_stage = STAGE_DEFAULT_FRAME
+            self.px_ref = self.px_cur
+        except:
+            self.frame_stage == STAGE_FIRST_FRAME
+
+
+    def processFrame(self, frame_id):
+        self.px_ref, self.px_cur = self.featureTracking()
+        try :
+            E, mask = cv2.findEssentialMat(self.px_cur, self.px_ref,
+                                        focal=self.focal, pp=self.pp,
+                                        method=cv2.RANSAC, prob=0.999, threshold=1.0)
+
+            _, R, t, mask = cv2.recoverPose(E, self.px_cur, self.px_ref,
+                                            focal=self.focal, pp=self.pp)
+            # self.absolute_scale = self.getAbsoluteScale(frame_id)
+            
+            
+            self.cur_t = self.cur_t + self.cur_R.dot(t)
+            self.cur_R = R.dot(self.cur_R)
             self.px_ref = self.px_cur
         except:
             self.frame_stage == STAGE_FIRST_FRAME

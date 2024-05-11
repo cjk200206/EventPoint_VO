@@ -7,7 +7,7 @@ from tqdm import tqdm
 from scripts.visualization.eventreader import EventReader
 
 from norm_visual_odometry import PinholeCamera, VisualOdometry
-from sp_visual_odometry import EventVisualOdometry as event_VisualOdometry
+from sp_visual_odometry import EventVisualOdometry_without_gt as event_VisualOdometry
 from scripts.dataset.representations import get_timesurface
 
 def render_for_model(x: np.ndarray, y: np.ndarray, pol: np.ndarray, H: int, W: int) -> np.ndarray:
@@ -39,9 +39,9 @@ def render(x: np.ndarray, y: np.ndarray, pol: np.ndarray, H: int, W: int) -> np.
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('Events Odometry')
-    parser.add_argument('--event_file', type=str,default="/home/cjk2002/datasets/VECTOR/events/corridors_dolly1.synced.left_event.hdf5", help='Path to events.h5 file')
-    parser.add_argument('--pose_file', type=str,default="/home/cjk2002/datasets/VECTOR/gt/corridors_dolly1.synced.gt.txt", help='Path to pose file')
-    parser.add_argument('--delta_time_ms', '-dt_ms', type=float, default=100.0, help='Time window (in milliseconds) to summarize events for visualization')
+    parser.add_argument('--event_file', type=str,default="/home/cjk2002/datasets/DSEC/interlaken_00_c_events_left/events.h5", help='Path to events.h5 file')
+    # parser.add_argument('--pose_file', type=str,default="/home/cjk2002/datasets/VECTOR/gt/corridors_dolly1.synced.gt.txt", help='Path to pose file')
+    parser.add_argument('--delta_time_ms', '-dt_ms', type=float, default=50.0, help='Time window (in milliseconds) to summarize events for visualization')
     parser.add_argument('--representation', '-rep', type=str, default='voxel', help='Event representations, voxel or sae')
     args = parser.parse_args()
 
@@ -52,20 +52,20 @@ if __name__ == '__main__':
     FPS = 1000/args.delta_time_ms 
 
     # for each camera model
-    cam_vector = PinholeCamera(640,480,327.32749,327.46184,304.97749,235.37621)
+    cam_vector = PinholeCamera(640,480,555.6627242364661,555.8306341927942,342.5725306057865,215.26831427862848)
 
     height = 480
     width = 640
 
     # pose_path
-    pose_path = args.pose_file
+    # pose_path = args.pose_file
     # vo = VisualOdometry(cam0_2, pose_path)
-    sp_vo = event_VisualOdometry(cam_vector, pose_path)
+    sp_vo = event_VisualOdometry(cam_vector)
 
     traj = np.zeros((1000, 1000, 3), dtype=np.uint8)
 
     # log
-    log_fopen = open("results/VECtor_"+"corridors_dolly1"+".txt", mode='w+')
+    log_fopen = open("results/"+"DSEC_test"+".txt", mode='w+')
 
     # list
     sp_errors = []
@@ -123,12 +123,12 @@ if __name__ == '__main__':
         # calculate error
         sp_est_point = np.array([sp_x, sp_z]).reshape(2)
         # norm_est_point = np.array([x, z]).reshape(2)
-        gt_point = np.array([sp_vo.trueX, sp_vo.trueZ]).reshape(2)
-        sp_error = np.linalg.norm(sp_est_point - gt_point)
+        # gt_point = np.array([sp_vo.trueX, sp_vo.trueZ]).reshape(2)
+        # sp_error = np.linalg.norm(sp_est_point - gt_point)
         # norm_error = np.linalg.norm(norm_est_point - gt_point)
 
         # append
-        sp_errors.append(sp_error)
+        # sp_errors.append(sp_error)
         # norm_errors.append(norm_error)
         sp_feature_nums.append(len(sp_vo.px_ref))
         # norm_feature_nums.append(len(vo.px_ref))
@@ -146,20 +146,20 @@ if __name__ == '__main__':
         
         print(img_id, len(sp_vo.px_ref),\
             float(sp_x), float(sp_y), float(sp_z), \
-            sp_vo.trueX, sp_vo.trueY, sp_vo.trueZ, file=log_fopen)
+            file=log_fopen)
 
         # === drawer ==================================
         # each point
         sp_draw_x, sp_draw_y = int(sp_x*5) + 500, int(sp_y*5) + 500
         # norm_draw_x, norm_draw_y = int(x) + 290, int(z) + 90
-        true_x, true_y = int(sp_vo.trueX*5) + 500, int(sp_vo.trueY*5) + 500
-        tqdm.write('\rx = {} y = {} true_x = {} true_y = {} stage = {} absolute_scale = {}'\
-                   .format(sp_x,sp_y,sp_vo.trueX,sp_vo.trueY,sp_vo.frame_stage,sp_vo.absolute_scale))
+        # true_x, true_y = int(sp_vo.trueX*5) + 500, int(sp_vo.trueY*5) + 500
+        tqdm.write('\rx = {} y = {} stage = {} absolute_scale = {}'\
+                   .format(sp_x,sp_y,sp_vo.frame_stage,sp_vo.absolute_scale))
 
         # draw trajectory
         cv2.circle(traj, (sp_draw_x, sp_draw_y), 1, (255, 0, 0), 1)
         # cv2.circle(traj, (norm_draw_x, norm_draw_y), 1, (0, 255, 0), 1)
-        cv2.circle(traj, (true_x, true_y), 1, (0, 0, 255), 2)
+        # cv2.circle(traj, (true_x, true_y), 1, (0, 0, 255), 2)
         cv2.rectangle(traj, (10, 20), (600, 60), (0, 0, 0), -1)
         # draw text
         text = "Superpoint: [AvgFeature] %4.2f [AvgError] %2.4fm" % (

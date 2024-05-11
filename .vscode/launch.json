@@ -5,11 +5,34 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Eventpoint_VO_DESC调试",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "event_point_main_DSEC.py",
+            "console": "integratedTerminal",
+            "args": [
+                "-rep","sae"
+            ]
+        },
+        {
+            "name": "Event_img_point_VO调试",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "event_img_point_main.py",
+            "console": "integratedTerminal",
+            "args": [
+                "-rep","sae"
+            ]
+        },
+        {
             "name": "Eventpoint_VO调试",
             "type": "debugpy",
             "request": "launch",
             "program": "event_point_main.py",
-            "console": "integratedTerminal"
+            "console": "integratedTerminal",
+            "args": [
+                "-rep","sae"
+            ]
         },
         {
             "name": "Superpoint_VO调试",
