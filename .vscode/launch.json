@@ -11,14 +11,15 @@
             "program": "event_point_main_DSEC.py",
             "console": "integratedTerminal",
             "args": [
-                "-rep","sae"
+                // "-rep","sae"
+                "-rep","voxel"
             ]
         },
         {
-            "name": "Event_img_point_VO调试",
+            "name": "DSEC_SP_VO调试",
             "type": "debugpy",
             "request": "launch",
-            "program": "event_img_point_main.py",
+            "program": "main_DSEC.py",
             "console": "integratedTerminal",
             "args": [
                 "-rep","sae"
@@ -31,7 +32,8 @@
             "program": "event_point_main.py",
             "console": "integratedTerminal",
             "args": [
-                "-rep","sae"
+                // "-rep","sae"
+                "-rep","voxel"
             ]
         },
         {

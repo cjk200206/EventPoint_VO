@@ -58,28 +58,36 @@ class VoxelGrid(EventRepresentation):
 
 
 #SAE图
-def get_timesurface(x:np.ndarray,y:np.ndarray,ts:np.ndarray,p:np.ndarray,img_size = (260,346)):
-    
+def get_timesurface(x:np.ndarray,y:np.ndarray,ts:np.ndarray,p:np.ndarray,img_size = (260,346),last_time = None,last_polarity = None):
+
     x = x.tolist()
     y = y.tolist()
     ts = (ts*10e-6).tolist()
     p = p.tolist()
-    
     img_size = img_size
 
     # parameters for Time Surface
     t_ref = ts[-1]      # 'current' time
+    t_begin = ts[0]      # 'current' time
     tau = 50e-3         # 50ms
 
-    sae = np.zeros(img_size, np.float32)
+    if last_time is None:
+        last_time = np.ones(img_size, np.float32)*t_begin
+        last_polarity = np.zeros(img_size, np.float32)
+        sae = np.zeros(img_size, np.float32)
+    else:
+        sae = last_polarity*np.exp(-(t_ref-last_time*10e-6) / tau)
+    
     # calculate timesurface using expotential decay
     for i in range(len(ts)):
         if (p[i] > 0):
             sae[y[i], x[i]] = np.exp(-(t_ref-ts[i]) / tau)
         else:
             sae[y[i], x[i]] = -np.exp(-(t_ref-ts[i]) / tau)
+        last_polarity[y[i], x[i]] = p[i]
+        last_time[y[i], x[i]] = ts[i]/10e-6
         
         ## none-polarity Timesurface
         # sae[y[i], x[i]] = np.exp(-(t_ref-ts[i]) / tau)
 
-    return sae
+    return sae,last_time,last_polarity

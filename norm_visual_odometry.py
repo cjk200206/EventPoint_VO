@@ -1,5 +1,6 @@
 import numpy as np
 import cv2
+from math import atan2, acos, pi,sqrt,pow
 
 STAGE_FIRST_FRAME = 0
 STAGE_SECOND_FRAME = 1
@@ -48,31 +49,61 @@ class VisualOdometry:
         self.focal = cam.fx
         self.pp = (cam.cx, cam.cy)
         self.trueX, self.trueY, self.trueZ = 0, 0, 0
-        self.detector = cv2.FastFeatureDetector_create(threshold=50,
+        self.roll, self.pitch, self.yaw = 0, 0, 0
+        self.detector = cv2.FastFeatureDetector_create(threshold=20,
                                                        nonmaxSuppression=True)
         with open(annotations) as f:
             self.annotations = f.readlines()
         self.absolute_scale = None
 
-    def getAbsoluteScale(self, frame_id):  # specialized for KITTI odometry dataset
-        ss = self.annotations[frame_id - 1].strip().split()
-        x_prev = float(ss[3])
-        y_prev = float(ss[7])
-        z_prev = float(ss[11])
-        ss = self.annotations[frame_id].strip().split()
-        x = float(ss[3])
-        y = float(ss[7])
-        z = float(ss[11])
-        # ss = self.annotations[frame_id].strip().split()
-        # x_prev = float(ss[1])
-        # y_prev = float(ss[2])
-        # z_prev = float(ss[3])
-        # ss = self.annotations[frame_id].strip().split()
-        # x = float(ss[1])
-        # y = float(ss[2])
-        # z = float(ss[3])
-        self.trueX, self.trueY, self.trueZ = x, y, z
-        return np.sqrt((x - x_prev) * (x - x_prev) + (y - y_prev) * (y - y_prev) + (z - z_prev) * (z - z_prev))
+    # def getAbsoluteScale(self, frame_id):  # specialized for KITTI odometry dataset
+    #     ss = self.annotations[frame_id - 1].strip().split()
+    #     x_prev = float(ss[3])
+    #     y_prev = float(ss[7])
+    #     z_prev = float(ss[11])
+    #     ss = self.annotations[frame_id].strip().split()
+    #     x = float(ss[3])
+    #     y = float(ss[7])
+    #     z = float(ss[11])
+    #     # ss = self.annotations[frame_id].strip().split()
+    #     # x_prev = float(ss[1])
+    #     # y_prev = float(ss[2])
+    #     # z_prev = float(ss[3])
+    #     # ss = self.annotations[frame_id].strip().split()
+    #     # x = float(ss[1])
+    #     # y = float(ss[2])
+    #     # z = float(ss[3])
+    #     self.trueX, self.trueY, self.trueZ = x, y, z
+    #     return np.sqrt((x - x_prev) * (x - x_prev) + (y - y_prev) * (y - y_prev) + (z - z_prev) * (z - z_prev))
+
+    def rotm2euler(self):
+        """
+        Converts a rotation matrix to Euler angles (yaw, pitch, roll).
+        
+        Args:
+            R (numpy.ndarray): 3x3 rotation matrix
+        
+        Returns:
+            tuple: Euler angles (yaw, pitch, roll) in radians
+        """
+        # Yaw (around Z axis)
+        self.yaw = atan2(self.cur_R[1,0], self.cur_R[0,0])
+        
+        # Pitch (around Y axis)
+        # self.pitch = acos(self.cur_R[2,2])
+        # if self.pitch > pi:
+        #     self.pitch = 2*pi - self.pitch
+        self.pitch = atan2(-self.cur_R[2,0],sqrt(pow(self.cur_R[2,1],2)+pow(self.cur_R[2,2],2)))
+        
+        # Roll (around X axis)    
+        self.roll = atan2(self.cur_R[2,1], self.cur_R[2,2])
+
+        self.yaw = self.yaw*180/pi
+        self.pitch = self.pitch*180/pi
+        self.roll = self.roll*180/pi
+        
+        return self.yaw, self.pitch, self.roll
+    
 
     def processFirstFrame(self):
         self.px_ref = self.detector.detect(self.new_frame)
@@ -99,11 +130,15 @@ class VisualOdometry:
                                         method=cv2.RANSAC, prob=0.999, threshold=1.0)
             _, R, t, mask = cv2.recoverPose(E, self.px_cur, self.px_ref,
                                             focal=self.focal, pp=self.pp)
-            self.absolute_scale = self.getAbsoluteScale(frame_id)
-            if(self.absolute_scale > 0.1):
-                self.cur_t = self.cur_t + self.absolute_scale * self.cur_R.dot(t)
-            # self.cur_t = self.cur_t+self.cur_R.dot(t)
-                self.cur_R = R.dot(self.cur_R)
+            ## 1 with pose
+            # self.absolute_scale = self.getAbsoluteScale(frame_id)
+            # if(self.absolute_scale > 0.1):
+            #     self.cur_t = self.cur_t + self.absolute_scale * self.cur_R.dot(t)
+            #     self.cur_R = R.dot(self.cur_R)
+            ## 2 no pose
+            self.cur_t = self.cur_t+self.cur_R.dot(t)
+            self.cur_R = R.dot(self.cur_R)
+
             if(self.px_ref.shape[0] < kMinNumFeature):
                 self.px_cur = self.detector.detect(self.new_frame)
                 self.px_cur = np.array(
@@ -118,6 +153,7 @@ class VisualOdometry:
         self.new_frame = img
         if(self.frame_stage == STAGE_DEFAULT_FRAME):
             self.processFrame(frame_id)
+            self.rotm2euler()
         elif(self.frame_stage == STAGE_SECOND_FRAME):
             self.processSecondFrame()
         elif(self.frame_stage == STAGE_FIRST_FRAME):

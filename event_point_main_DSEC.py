@@ -7,7 +7,7 @@ from tqdm import tqdm
 from scripts.visualization.eventreader import EventReader
 
 from norm_visual_odometry import PinholeCamera, VisualOdometry
-from sp_visual_odometry import EventVisualOdometry_without_gt as event_VisualOdometry
+from sp_visual_odometry import VisualOdometry_without_gt as event_VisualOdometry
 from scripts.dataset.representations import get_timesurface
 
 def render_for_model(x: np.ndarray, y: np.ndarray, pol: np.ndarray, H: int, W: int) -> np.ndarray:
@@ -39,8 +39,8 @@ def render(x: np.ndarray, y: np.ndarray, pol: np.ndarray, H: int, W: int) -> np.
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser('Events Odometry')
-    parser.add_argument('--event_file', type=str,default="/home/cjk2002/datasets/DSEC/interlaken_00_c_events_left/events.h5", help='Path to events.h5 file')
-    # parser.add_argument('--pose_file', type=str,default="/home/cjk2002/datasets/VECTOR/gt/corridors_dolly1.synced.gt.txt", help='Path to pose file')
+    parser.add_argument('--event_file', type=str,default="/home/cjk2002/datasets/DSEC/train/events/interlaken_00_c_events_left/events.h5", help='Path to events.h5 file')
+    parser.add_argument('--pose_file', type=str,default="/home/cjk2002/datasets/VECTOR/gt/corridors_dolly1.synced.gt.txt", help='Path to pose file')
     parser.add_argument('--delta_time_ms', '-dt_ms', type=float, default=50.0, help='Time window (in milliseconds) to summarize events for visualization')
     parser.add_argument('--representation', '-rep', type=str, default='voxel', help='Event representations, voxel or sae')
     args = parser.parse_args()
@@ -58,8 +58,8 @@ if __name__ == '__main__':
     width = 640
 
     # pose_path
-    # pose_path = args.pose_file
-    # vo = VisualOdometry(cam0_2, pose_path)
+    pose_path = args.pose_file
+    vo = VisualOdometry(cam_vector,pose_path)
     sp_vo = event_VisualOdometry(cam_vector)
 
     traj = np.zeros((1000, 1000, 3), dtype=np.uint8)
@@ -84,13 +84,14 @@ if __name__ == '__main__':
             img_train = render_for_model(x, y, p, height, width)
             img = render(x, y, p, height, width)
         elif args.representation == "sae":
-            img_train = get_timesurface(x,y,t,p,(height,width))
+            img_train,_,_ = get_timesurface(x,y,t,p,(height,width))
             img = render(x, y, p, height, width)
             # img = (img_train+1)*127.5
 
         # === superpoint ==============================
         sp_vo.update(img_train, img_id)
 
+        sp_roll,sp_pitch,sp_yaw = sp_vo.roll,sp_vo.pitch,sp_vo.yaw
         sp_cur_t = sp_vo.cur_t
         if(img_id > 2) and (sp_vo.frame_stage == 2):
             sp_x, sp_y, sp_z = sp_cur_t[0], sp_cur_t[1], sp_cur_t[2]
@@ -98,7 +99,8 @@ if __name__ == '__main__':
             sp_x, sp_y, sp_z = 0., 0., 0.
 
         # sp_img = cv2.cvtColor(img_train*255, cv2.COLOR_GRAY2RGB)
-        sp_img = img
+        sp_img = np.stack(((img_train+1)*127.5,)*3, axis=-1).astype(np.uint8)
+        # sp_img = img
         for (u, v) in sp_vo.px_ref:
             if args.representation == "voxel":
                 cv2.circle(sp_img, (u, v), 3, (0, 255, 0))
@@ -107,22 +109,25 @@ if __name__ == '__main__':
                 cv2.circle(sp_img, (u, v), 3, (0, 255, 0))
 
         # === normal ==================================
-        # vo.update(img, img_id)
+        img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+        vo.update(img, img_id)
+        norm_roll,norm_pitch,norm_yaw = vo.roll,vo.pitch,vo.yaw
 
-        # cur_t = vo.cur_t
-        # if(img_id > 2):
-        #     x, y, z = cur_t[0], cur_t[1], cur_t[2]
-        # else:
-        #     x, y, z = 0., 0., 0.
+        cur_t = vo.cur_t
+        if(img_id > 2):
+            x, y, z = cur_t[0], cur_t[1], cur_t[2]
+        else:
+            x, y, z = 0., 0., 0.
 
+        img = np.stack(((img_train+1)*127.5,)*3, axis=-1).astype(np.uint8)
         # img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
-        # for (u, v) in vo.px_ref:
-        #     cv2.circle(img, (int(u), int(v)), 3, (0, 255, 0))
+        for (u, v) in vo.px_ref:
+            cv2.circle(img, (int(u), int(v)), 3, (0, 255, 0))
 
         # === calculation =============================
         # calculate error
         sp_est_point = np.array([sp_x, sp_z]).reshape(2)
-        # norm_est_point = np.array([x, z]).reshape(2)
+        norm_est_point = np.array([x, z]).reshape(2)
         # gt_point = np.array([sp_vo.trueX, sp_vo.trueZ]).reshape(2)
         # sp_error = np.linalg.norm(sp_est_point - gt_point)
         # norm_error = np.linalg.norm(norm_est_point - gt_point)
@@ -131,34 +136,36 @@ if __name__ == '__main__':
         # sp_errors.append(sp_error)
         # norm_errors.append(norm_error)
         sp_feature_nums.append(len(sp_vo.px_ref))
-        # norm_feature_nums.append(len(vo.px_ref))
+        norm_feature_nums.append(len(vo.px_ref))
 
         # average
         avg_sp_error = np.mean(np.array(sp_errors))
-        # avg_norm_error = np.mean(np.array(norm_errors))
+        avg_norm_error = np.mean(np.array(norm_errors))
         avg_sp_feature_num = np.mean(np.array(sp_feature_nums))
-        # avg_norm_feature_num = np.mean(np.array(norm_feature_nums))
+        avg_norm_feature_num = np.mean(np.array(norm_feature_nums))
 
         # === log writer ==============================
-        # print(img_id, len(sp_vo.px_ref), len(vo.px_ref),
-        #       float(sp_x), float(sp_y), float(sp_z), float(x), float(y), float(z),
-        #       sp_vo.trueX, sp_vo.trueY, sp_vo.trueZ, file=log_fopen)
+        print(img_id, len(sp_vo.px_ref), len(vo.px_ref),
+              float(sp_x), float(sp_y), float(sp_z), float(x), float(y), float(z),
+              sp_vo.trueX, sp_vo.trueY, sp_vo.trueZ,
+              float(sp_roll), float(sp_pitch), float(sp_yaw),
+              float(norm_roll), float(norm_pitch), float(norm_yaw),file=log_fopen)
         
-        print(img_id, len(sp_vo.px_ref),\
-            float(sp_x), float(sp_y), float(sp_z), \
-            file=log_fopen)
+        # print(img_id, len(sp_vo.px_ref),\
+        #     float(sp_x), float(sp_y), float(sp_z), \
+        #     file=log_fopen)
 
         # === drawer ==================================
         # each point
-        sp_draw_x, sp_draw_y = int(sp_x*5) + 500, int(sp_y*5) + 500
-        # norm_draw_x, norm_draw_y = int(x) + 290, int(z) + 90
+        sp_draw_x, sp_draw_y = int(sp_x) + 500, int(sp_y) + 500
+        norm_draw_x, norm_draw_y = int(x) + 500, int(z) + 500
         # true_x, true_y = int(sp_vo.trueX*5) + 500, int(sp_vo.trueY*5) + 500
         tqdm.write('\rx = {} y = {} stage = {} absolute_scale = {}'\
                    .format(sp_x,sp_y,sp_vo.frame_stage,sp_vo.absolute_scale))
 
         # draw trajectory
         cv2.circle(traj, (sp_draw_x, sp_draw_y), 1, (255, 0, 0), 1)
-        # cv2.circle(traj, (norm_draw_x, norm_draw_y), 1, (0, 255, 0), 1)
+        cv2.circle(traj, (norm_draw_x, norm_draw_y), 1, (0, 255, 0), 1)
         # cv2.circle(traj, (true_x, true_y), 1, (0, 0, 255), 2)
         cv2.rectangle(traj, (10, 20), (600, 60), (0, 0, 0), -1)
         # draw text
@@ -166,13 +173,14 @@ if __name__ == '__main__':
             avg_sp_feature_num, avg_sp_error)
         cv2.putText(traj, text, (20, 40),
                     cv2.FONT_HERSHEY_PLAIN, 1, (255, 0, 0), 1, 8)
-        # text = "Normal    : [AvgFeature] %4.2f [AvgError] %2.4fm" % (
-        #     avg_norm_feature_num, avg_norm_error)
-        # cv2.putText(traj, text, (20, 60),
-        #             cv2.FONT_HERSHEY_PLAIN, 1, (0, 255, 0), 1, 8)
+        text = "Normal    : [AvgFeature] %4.2f [AvgError] %2.4fm" % (
+            avg_norm_feature_num, avg_norm_error)
+        cv2.putText(traj, text, (20, 60),
+                    cv2.FONT_HERSHEY_PLAIN, 1, (0, 255, 0), 1, 8)
 
-        # cv2.imshow('Road facing camera', np.concatenate((sp_img, img), axis=0))
-        cv2.imshow('Road facing camera', sp_img)
+        cv2.imshow('Road facing camera', np.concatenate((sp_img, img), axis=0))
+        # cv2.imshow('Road facing camera', sp_img)
+        # cv2.imshow('Road facing camera', img)
         cv2.imshow('Trajectory', traj)
         cv2.waitKey(1)
         # read next img

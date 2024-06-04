@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
 
-def read_log(log_file):
+def read_log(log_file,mode = 'default'):
     loaded_data = []
     img_ids = []
     sp_features = []
@@ -12,6 +12,9 @@ def read_log(log_file):
     sp_points = []
     norm_points = []
     gt_points = []
+    euler_rpy = []
+    if mode == '2_rpy':
+        euler_rpy_norm = []
     with open(log_file, 'r') as f:
         for i, line in enumerate(f.readlines()):
             try:
@@ -23,16 +26,26 @@ def read_log(log_file):
                 sp_points.append([float(x) for x in tmp_data[3:6]])
                 norm_points.append([float(x) for x in tmp_data[6:9]])
                 gt_points.append([float(x) for x in tmp_data[9:12]])
+                euler_rpy.append([float(x) for x in tmp_data[12:15]])
+                if mode == '2_rpy':
+                    euler_rpy_norm.append([float(x) for x in tmp_data[15:18]])
             except ValueError:
                 print(tmp_data)
                 print("\nfailed")
-    return np.array(img_ids), np.array(sp_features), np.array(norm_features), np.array(sp_points), np.array(norm_points), np.array(gt_points)
-
+    if mode == "default":
+        return np.array(img_ids), np.array(sp_features), np.array(norm_features), np.array(sp_points), np.array(norm_points), np.array(gt_points),np.array(euler_rpy)
+    elif mode == "2_rpy":
+        return np.array(img_ids), np.array(sp_features), np.array(norm_features), np.array(sp_points), np.array(norm_points), np.array(gt_points),np.array(euler_rpy),np.array(euler_rpy_norm)
+    
 
 def main():
     # dataloader
-    img_ids, sp_features, norm_features, sp_points, norm_points, gt_points = read_log(
-        "results/kitti_00.txt")
+    img_ids, sp_features, norm_features, sp_points, norm_points, gt_points, euler_rpy,euler_rpy_norm= read_log(
+        "results/DSEC_test_save.txt",mode="2_rpy")
+    _, _, _, _, _, _, euler_rpy_gt= read_log(
+        "results/DESC_interlaken_00_c_save.txt")
+    euler_rpy_gt = euler_rpy_gt[1:-1]
+
     # error
     sp_error = np.linalg.norm((sp_points - gt_points)[:, [0, 2]], axis=1)
     norm_error = np.linalg.norm((norm_points - gt_points)[:, [0, 2]], axis=1)
@@ -46,17 +59,41 @@ def main():
     # visualize
     figure = plt.figure()
     if True:
-        plt.subplot(2, 1, 1)
+        # plt.subplot(2, 1, 1)
         plt.plot(img_ids, norm_features, color="blue", label="Normal-VO")
         plt.plot(img_ids, sp_features, color="red", label="SP-VO")
         plt.ylabel("Feature Number")
+        plt.legend(["Normal-VO","SP-VO"])
+        plt.savefig("feature_num.png")
+        
+        # plt.subplot(2, 1, 2)
+        # plt.plot(img_ids, avg_norm_error, color="blue", label="Normal-VO")
+        # plt.plot(img_ids, avg_sp_error, color="red", label="SP-VO")
+        # plt.xlabel("Timestamp")
+        # plt.ylabel("Avg Distance Error [m]")
+        # plt.legend()
 
-        plt.subplot(2, 1, 2)
-        plt.plot(img_ids, avg_norm_error, color="blue", label="Normal-VO")
-        plt.plot(img_ids, avg_sp_error, color="red", label="SP-VO")
-        plt.xlabel("Timestamp")
-        plt.ylabel("Avg Distance Error [m]")
+        plt.subplot(3,1,1)
+        plt.plot(img_ids,euler_rpy[:,0],color="blue", label="VO")
+        plt.plot(img_ids,euler_rpy_norm[:,0],color="green", label="VO_norm")
+        plt.plot(img_ids,euler_rpy_gt[:,0],color="red", label="gt")
         plt.legend()
+        plt.ylabel("roll")
+
+        plt.subplot(3,1,2)
+        plt.plot(img_ids,euler_rpy[:,1],color="blue", label="VO")
+        plt.plot(img_ids,euler_rpy_norm[:,1],color="green", label="VO_norm")
+        plt.plot(img_ids,euler_rpy_gt[:,1],color="red", label="gt")
+        plt.ylabel("pitch")
+
+        plt.subplot(3,1,3)
+        plt.plot(img_ids,euler_rpy[:,2],color="blue", label="VO")
+        plt.plot(img_ids,euler_rpy_norm[:,2],color="green", label="VO_norm")
+        plt.plot(img_ids,euler_rpy_gt[:,2],color="red", label="gt")
+        plt.ylabel("yaw")
+        plt.savefig("rotation_euler.png")
+
+
     else:
         plt.plot(gt_points[:, 0], gt_points[:, 2],
                  color="black", label="Ground Truth")
@@ -68,7 +105,7 @@ def main():
         plt.axes().set_aspect('equal', 'datalim')
         plt.legend()
     plt.show()
-
+    print("finish")
 
 if __name__ == "__main__":
     main()
